@@ -1,1 +1,406 @@
 
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Catch the Gift!</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts for gorgeous typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Quicksand:wght@400..700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Quicksand', sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .title-font {
+      font-family: 'Fredoka', sans-serif;
+    }
+    /* Smooth floating animation for elements */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(3deg); }
+    }
+    .floating-gift {
+      animation: float 3s ease-in-out infinite;
+    }
+    /* Transition for the gift box */
+    #gift {
+      transition: top 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    /* Sparkle/Confetti elements */
+    .sparkle {
+      position: absolute;
+      pointer-events: none;
+      animation: pop 0.6s ease-out forwards;
+    }
+    @keyframes pop {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-tr from-pink-100 via-purple-100 to-indigo-100 min-h-screen flex flex-col items-center justify-center relative">
+
+  <!-- Confetti Canvas for Celebrations -->
+  <canvas id="confetti-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-50 hidden"></canvas>
+
+  <!-- START SCREEN -->
+  <div id="start-screen" class="z-10 flex flex-col items-center text-center px-6 max-w-md">
+    <!-- Big cute gift illustration -->
+    <div class="floating-gift mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-32 h-32 drop-shadow-xl">
+        <rect x="15" y="40" width="70" height="50" rx="8" fill="#FF5E7E" />
+        <rect x="10" y="30" width="80" height="15" rx="4" fill="#FF3355" />
+        <rect x="42" y="30" width="16" height="60" fill="#FFD215" />
+        <rect x="15" y="55" width="70" height="12" fill="#FFD215" />
+        <path d="M50,30 C30,8 15,22 45,28 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+        <path d="M50,30 C70,8 85,22 55,28 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+        <circle cx="50" cy="29" r="7" fill="#FFD215" />
+      </svg>
+    </div>
+    
+    <h1 class="title-font text-4xl md:text-5xl font-bold text-pink-600 mb-2 drop-shadow-sm">Catch the Gift!</h1>
+    <p class="text-gray-600 text-lg mb-8">A mysterious gift is running around! Can you tap it to reveal what's inside?</p>
+    
+    <!-- Game Mode/Difficulty Selector -->
+    <div class="mb-8 w-full bg-white/50 backdrop-blur-md rounded-2xl p-4 shadow-inner">
+      <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Choose Difficulty</p>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="btn-easy" onclick="setDifficulty('easy')" class="py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-pink-500 text-white shadow-md shadow-pink-200">Easy</button>
+        <button id="btn-medium" onclick="setDifficulty('medium')" class="py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-gray-700 hover:bg-pink-100">Medium</button>
+        <button id="btn-hard" onclick="setDifficulty('hard')" class="py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-gray-700 hover:bg-pink-100">Chaos</button>
+      </div>
+    </div>
+
+    <button onclick="startGame()" class="title-font bg-gradient-to-r from-pink-500 to-rose-500 text-white text-xl font-semibold px-10 py-4 rounded-full shadow-lg shadow-pink-300 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200">
+      Let's Play! 🎁
+    </button>
+  </div>
+
+  <!-- PLAYING SCREEN CONTAINER (only shows playing elements dynamically) -->
+  <div id="game-arena" class="absolute inset-0 w-full h-full hidden pointer-events-none">
+    <!-- Top HUD info -->
+    <div class="absolute top-4 left-0 right-0 px-6 flex justify-between items-center z-20 pointer-events-auto">
+      <button onclick="exitGame()" class="bg-white/70 hover:bg-white text-gray-700 p-2.5 rounded-full shadow-md transition-all">
+        <!-- Back Arrow SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+      </button>
+      <div class="bg-white/80 backdrop-blur-md py-1.5 px-4 rounded-full shadow-md border border-pink-100">
+        <span class="text-sm font-bold text-pink-600">Misses: <span id="miss-count">0</span></span>
+      </div>
+    </div>
+
+    <!-- The actual moving Gift Box -->
+    <div id="gift" class="absolute cursor-pointer select-none pointer-events-auto filter drop-shadow-2xl z-30" style="width: 90px; height: 90px; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-full h-full active:scale-90 transition-transform duration-100">
+        <rect x="15" y="40" width="70" height="50" rx="8" fill="#FF5E7E" />
+        <rect x="10" y="30" width="80" height="15" rx="4" fill="#FF3355" />
+        <rect x="42" y="30" width="16" height="60" fill="#FFD215" />
+        <rect x="15" y="55" width="70" height="12" fill="#FFD215" />
+        <path d="M50,30 C30,8 15,22 45,28 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+        <path d="M50,30 C70,8 85,22 55,28 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+        <circle cx="50" cy="29" r="7" fill="#FFD215" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- WINNER / REVEAL SCREEN -->
+  <div id="win-screen" class="z-10 flex flex-col items-center text-center px-6 max-w-lg hidden">
+    <!-- Huge sparkling reveal circle -->
+    <div class="relative w-48 h-48 mb-8 flex items-center justify-center">
+      <div class="absolute inset-0 bg-pink-300 rounded-full blur-xl opacity-40 animate-pulse"></div>
+      <!-- Open Gift Box SVG -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-36 h-36 drop-shadow-2xl z-10 floating-gift">
+        <!-- Open Lid floating off -->
+        <g transform="translate(0, -18) rotate(-15 50 30)">
+          <rect x="8" y="20" width="84" height="16" rx="4" fill="#FF3355" />
+          <path d="M50,20 C30,-2 15,12 45,18 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+          <path d="M50,20 C70,-2 85,12 55,18 Z" fill="#FFE240" stroke="#E6B800" stroke-width="1.5"/>
+          <circle cx="50" cy="19" r="7" fill="#FFD215" />
+        </g>
+        <!-- Box Body -->
+        <rect x="15" y="45" width="70" height="48" rx="8" fill="#FF5E7E" />
+        <rect x="42" y="45" width="16" height="48" fill="#FFD215" />
+        <rect x="15" y="65" width="70" height="12" fill="#FFD215" />
+        <!-- Glowing hearts escaping -->
+        <path d="M40,32 C38,28 32,28 32,32 C32,36 40,42 40,42 C40,42 48,36 48,32 C48,28 42,28 40,32 Z" fill="#FF3355" opacity="0.9" />
+        <path d="M60,25 C58.5,22 54,22 54,25 C54,28 60,32.5 60,32.5 C60,32.5 66,28 66,25 C66,22 61.5,22 60,25 Z" fill="#FFD215" opacity="0.9" />
+      </svg>
+    </div>
+
+    <!-- The Secret Word "mangyi" Page Content -->
+    <h1 class="title-font text-6xl md:text-8xl font-black text-pink-600 mb-4 tracking-wide drop-shadow-md animate-bounce">
+      mangyi
+    </h1>
+    <p class="text-gray-700 text-lg md:text-xl font-medium max-w-md mb-8 leading-relaxed bg-white/40 backdrop-blur-sm p-4 rounded-2xl border border-pink-100">
+      ✨ Yay! You caught the run-away gift box! You deserve all the joy and surprises in the world today. ✨
+    </p>
+
+    <!-- Play Again Button -->
+    <button onclick="restartGame()" class="title-font bg-white hover:bg-pink-50 text-pink-600 border-2 border-pink-500 text-lg font-bold px-8 py-3 rounded-full shadow-md transition-all duration-200 flex items-center gap-2 hover:scale-105 active:scale-95">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      Play Again
+    </button>
+  </div>
+
+  <script>
+    // Game variables
+    let gameSpeed = 1400; // time in ms between automatic jumps
+    let difficulty = 'easy';
+    let moveInterval = null;
+    let misses = 0;
+    let hasWon = false;
+    
+    // Confetti engine variables
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    let confetti = [];
+    let confettiAnimationId = null;
+
+    // Elements
+    const startScreen = document.getElementById('start-screen');
+    const gameArena = document.getElementById('game-arena');
+    const winScreen = document.getElementById('win-screen');
+    const giftElement = document.getElementById('gift');
+    const missCountElement = document.getElementById('miss-count');
+
+    // Handle screen resize for boundaries and confetti canvas
+    window.addEventListener('resize', () => {
+      if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+    });
+
+    // Audio sound generator (Web Audio API) for instant tap feedback
+    function playBeep(type) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'hit') {
+          // Success melody
+          oscillator.type = 'triangle';
+          oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+          gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'miss') {
+          // Soft miss sound
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(180, audioCtx.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.15);
+        }
+      } catch (e) {
+        console.log('Audio Context not allowed/supported yet.');
+      }
+    }
+
+    // Set Game Difficulty
+    function setDifficulty(level) {
+      difficulty = level;
+      
+      // Reset button styles
+      document.getElementById('btn-easy').className = "py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-gray-700 hover:bg-pink-100";
+      document.getElementById('btn-medium').className = "py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-gray-700 hover:bg-pink-100";
+      document.getElementById('btn-hard').className = "py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-gray-700 hover:bg-pink-100";
+
+      // Enable active style
+      const activeBtn = document.getElementById(`btn-${level}`);
+      activeBtn.className = "py-2 px-3 rounded-xl font-medium text-sm transition-all duration-200 bg-pink-500 text-white shadow-md shadow-pink-200";
+
+      if (level === 'easy') {
+        gameSpeed = 1500;
+      } else if (level === 'medium') {
+        gameSpeed = 900;
+      } else if (level === 'hard') {
+        gameSpeed = 500; // Chaos speed!
+      }
+    }
+
+    // Start Game
+    function startGame() {
+      startScreen.classList.add('hidden');
+      winScreen.classList.add('hidden');
+      gameArena.classList.remove('hidden');
+      
+      misses = 0;
+      hasWon = false;
+      missCountElement.textContent = misses;
+      
+      // Teleport gift to random start location
+      teleportGift();
+
+      // Start automatic leaping interval
+      clearInterval(moveInterval);
+      moveInterval = setInterval(() => {
+        if (!hasWon) {
+          teleportGift();
+        }
+      }, gameSpeed);
+    }
+
+    // Move gift to random coordinates inside safety margin
+    function teleportGift() {
+      if (hasWon) return;
+
+      const padding = 100; // prevent leaving viewport boundaries
+      const maxWidth = window.innerWidth - padding;
+      const maxHeight = window.innerHeight - padding;
+
+      // Random position calculation
+      const nextX = Math.max(padding / 2, Math.floor(Math.random() * maxWidth));
+      const nextY = Math.max(padding / 2, Math.floor(Math.random() * maxHeight));
+
+      giftElement.style.left = `${nextX}px`;
+      giftElement.style.top = `${nextY}px`;
+    }
+
+    // Tap/Click on the gift box
+    giftElement.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevents double firing touch and click
+      onGiftCaught();
+    });
+
+    giftElement.addEventListener('mousedown', (e) => {
+      onGiftCaught();
+    });
+
+    function onGiftCaught() {
+      if (hasWon) return;
+      hasWon = true;
+
+      playBeep('hit');
+      clearInterval(moveInterval);
+      
+      // Trigger magical page setup
+      gameArena.classList.add('hidden');
+      winScreen.classList.remove('hidden');
+      
+      // Fire up the Confetti celebration!
+      startConfetti();
+    }
+
+    // Track Arena Misses (Tapping the background instead of the gift)
+    gameArena.addEventListener('click', (e) => {
+      // If the clicked target was the background/arena itself and not the gift
+      if (e.target === gameArena && !hasWon) {
+        misses++;
+        missCountElement.textContent = misses;
+        playBeep('miss');
+        
+        // Visual feedback at tap spot
+        createTapRipple(e.clientX, e.clientY);
+
+        // If hard/chaos mode, relocate gift instantly on a miss
+        if (difficulty === 'hard') {
+          teleportGift();
+        }
+      }
+    });
+
+    // Create a beautiful tap ripple when the user misses
+    function createTapRipple(x, y) {
+      const ripple = document.createElement('div');
+      ripple.className = 'sparkle w-8 h-8 rounded-full border-2 border-pink-400 bg-pink-100/30';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    }
+
+    // Exit Game back to Menu
+    function exitGame() {
+      clearInterval(moveInterval);
+      gameArena.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    }
+
+    // Restart game from winning screen
+    function restartGame() {
+      stopConfetti();
+      winScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    }
+
+    // Confetti Engine Implementation
+    function startConfetti() {
+      canvas.classList.remove('hidden');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      confetti = [];
+
+      const colors = ['#FF5E7E', '#FF3355', '#FFD215', '#FFE240', '#3B82F6', '#10B981', '#8B5CF6'];
+
+      // Generate colorful particle models
+      for (let i = 0; i < 150; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          size: Math.random() * 8 + 5,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          speedX: Math.random() * 4 - 2,
+          speedY: Math.random() * 5 + 4,
+          rotation: Math.random() * 360,
+          rotationSpeed: Math.random() * 4 - 2
+        });
+      }
+
+      function updateConfetti() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        confetti.forEach((p) => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          p.rotation += p.rotationSpeed;
+
+          // Wrap around edges or fall back to top
+          if (p.y > canvas.height) {
+            p.y = -20;
+            p.x = Math.random() * canvas.width;
+          }
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        });
+
+        confettiAnimationId = requestAnimationFrame(updateConfetti);
+      }
+
+      updateConfetti();
+    }
+
+    function stopConfetti() {
+      canvas.classList.add('hidden');
+      if (confettiAnimationId) {
+        cancelAnimationFrame(confettiAnimationId);
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  </script>
+</body>
+</html>
+
